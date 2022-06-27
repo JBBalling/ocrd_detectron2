@@ -123,6 +123,7 @@ class Detectron2Segment(Processor):
         LOG.info("Loading weights '%s'", model_weights)
         self.predictor = DefaultPredictor(cfg)
         self.categories = self.parameter['categories']
+        self.class_ids_to_ignore = []
 
     def process(self):
         """Use detectron2 to segment each page into regions.
@@ -162,7 +163,9 @@ class Detectron2Segment(Processor):
         assert_file_grp_cardinality(self.input_file_grp, 1)
         assert_file_grp_cardinality(self.output_file_grp, 1)
         level = self.parameter['operation_level']
-
+        if "class_ids_to_ignore" in self.parameter:
+            self.class_ids_to_ignore = self.parameter["class_ids_to_ignore"]
+            LOG.info(f"Ignoring classes with class id: {self.class_ids_to_ignore}")
         # pylint: disable=attribute-defined-outside-init
         for n, input_file in enumerate(self.input_files):
             page_id = input_file.pageId or input_file.ID
@@ -371,10 +374,23 @@ class Detectron2Segment(Processor):
                 cv2.fillPoly(mask0, pts=[polygon], color=(255,))
             assert np.count_nonzero(mask0), "existing regions all outside of page frame"
             masks[0] |= mask0 > 0
+
+        if len(self.class_ids_to_ignore) > 0:
+            for cls_ignore in self.class_ids_to_ignore:
+                filter_condition = classes != cls_ignore
+                scores = scores[filter_condition]
+                classes = classes[filter_condition]
+                masks = masks[filter_condition]
+                
+        if len(classes) == 0:
+            LOG.info(f"Skipping prediction because classes is empty")
+            return
+
         scores, classes, masks = postprocess(
             scores, classes, masks,
             array_bin, components,
             self.categories, min_confidence=self.parameter['min_confidence'], nproc=8)
+        
         if len(ignore):
             scores = scores[1:]
             classes = classes[1:]

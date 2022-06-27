@@ -49,6 +49,11 @@
                     "type": "string",
                     "default": "cuda",
                     "description": "select computing device for Torch (e.g. cpu or cuda:0); will fall back to CPU if no GPU is available"
+                },
+                "class_ids_to_ignore": {
+                    "type": "array",
+                    "required": false,
+                    "description": "maps each region category (position) of the model to a PAGE region type (and @type or @custom if separated by colon), e.g. ['TextRegion:paragraph', 'TextRegion:heading', 'TextRegion:floating', 'TableRegion', 'ImageRegion'] for PubLayNet; categories with an empty string will be skipped during prediction"
                 }
             }
         }
